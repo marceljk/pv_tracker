@@ -101,51 +101,55 @@ const getForecast = () => {
         },
     }
     request(options, async (err, res) => {
-        const data = await JSON.parse(res.body);
+        if (err == null) {
+            const data = await JSON.parse(res.body);
 
-        let temp = {};
-        data.forecasts.forEach((x) => {
-            let period_date = new Date(x.period_end).setHours(0, 0);
-            if (temp[period_date] == undefined) {
-                temp[period_date] = x.pv_estimate;
-            } else {
-                temp[period_date] += x.pv_estimate;
-            }
-        });
+            let temp = {};
+            data.forecasts.forEach((x) => {
+                let period_date = new Date(x.period_end).setHours(0, 0);
+                if (temp[period_date] == undefined) {
+                    temp[period_date] = x.pv_estimate;
+                } else {
+                    temp[period_date] += x.pv_estimate;
+                }
+            });
 
-        Object.keys(temp).forEach(x => {
-            temp[x] = (Math.round((temp[x] / 2) * 1) / 1);
-        });
+            Object.keys(temp).forEach(x => {
+                temp[x] = (Math.round((temp[x] / 2) * 1) / 1);
+            });
 
-        let dailyForecast = {
-            dailyForecast: {}
-        };
-        Object.keys(temp).forEach(x => {
-            const day = new Date(Number(x)).getDay();
-            dailyForecast.dailyForecast[x] = {
-                estimate: temp[x],
-                day: getDay[day]
+            let dailyForecast = {
+                dailyForecast: {}
             };
+            Object.keys(temp).forEach(x => {
+                const day = new Date(Number(x)).getDay();
+                dailyForecast.dailyForecast[x] = {
+                    estimate: temp[x],
+                    day: getDay[day]
+                };
+            }
+            );
+
+            fs.writeFile("dailyForecast.json", JSON.stringify(dailyForecast), function (err) {
+                if (err) {
+                    console.log(err);
+                }
+            });
+
+            const forecast = {
+                pv_estimate: data.forecasts.map(x => x.pv_estimate),
+                period_end: data.forecasts.map(x => x.period_end),
+                period: data.forecasts[0].period,
+            };
+            fs.writeFile("forecast.json", JSON.stringify(forecast), function (err) {
+                if (err) {
+                    console.log(err);
+                }
+            });
+            console.log("updated forecast", new Date());
+        } else {
+            console.log(err);
         }
-        );
-
-        fs.writeFile("dailyForecast.json", JSON.stringify(dailyForecast), function (err) {
-            if (err) {
-                console.log(err);
-            }
-        });
-
-        const forecast = {
-            pv_estimate: data.forecasts.map(x => x.pv_estimate),
-            period_end: data.forecasts.map(x => x.period_end),
-            period: data.forecasts[0].period,
-        };
-        fs.writeFile("forecast.json", JSON.stringify(forecast), function (err) {
-            if (err) {
-                console.log(err);
-            }
-        });
-        console.log("updated forecast", new Date());
 
     });
 };
