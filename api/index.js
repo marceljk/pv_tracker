@@ -1,7 +1,20 @@
-import express from 'express';
-import request from 'request';
-import FormData from 'form-data';
-import fs from 'fs';
+const express = require('express');
+const request = require('request');
+const FormData = require('form-data');
+const fs = require('fs');
+
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
+
+const serviceAccount = require('./serviceAccountKey.json');
+
+initializeApp({
+    credential: cert(serviceAccount),
+    databaseURL: "https://poc-database-da139-default-rtdb.europe-west1.firebasedatabase.app",
+});
+
+const db = getDatabase();
+const dbHistoryRef = db.ref("history");
 
 const router = express.Router();
 
@@ -22,29 +35,43 @@ router.get('/', function (req, res) {
     res.send("API !");
 });
 
-router.get('/data', (req, res) => {
-    request(
-        {
-            url: 'http://varta130104162/cgi/data',
-            headers: {
-                cookie: cookie,
-            }
-        },
-        (error, response, body) => {
-            if (error || response.statusCode !== 200) {
-                return res.status(response.statusCode).json(response);
-            }
+const getPVData = async () => {
+    return await new Promise((resolve, rejects) => {
+        request(
+            {
+                url: 'http://varta130104162/cgi/data',
+                headers: {
+                    cookie: cookie,
+                }
+            },
+            (error, response, body) => {
+                if (error || response.statusCode !== 200) {
+                    rejects(response);
+                }
 
-            const data = JSON.parse(body)
-            res.json({
-                batteryPercent: data.pulse.procImg.soc_pct,
-                gridPower: data.pulse.procImg.gridPower_W,
-                pvPower: data.common.power_W,
-                powerConsumption: Math.round(data.common.power_W - data.pulse.procImg.gridPower_W - data.pulse.procImg.activePowerAc_W),
-                batteryPower: Math.round(data.pulse.procImg.activePowerAc_W)
-            });
-        }
-    )
+                try {
+                    const data = JSON.parse(body)
+                    resolve({
+                        batteryPercent: data.pulse.procImg.soc_pct,
+                        gridPower: data.pulse.procImg.gridPower_W,
+                        pvPower: data.common.power_W,
+                        powerConsumption: Math.round(data.common.power_W - data.pulse.procImg.gridPower_W - data.pulse.procImg.activePowerAc_W),
+                        batteryPower: Math.round(data.pulse.procImg.activePowerAc_W)
+                    });
+                } catch (err) {
+                    console.log("getPVData() err:", err);
+                    console.log("getPVData() body:", body);
+                    rejects(err);
+                }
+            }
+        )
+    });
+}
+
+router.get('/data', async (req, res) => {
+    const result = await getPVData();
+    if (result.statusCode !== undefined) res.statusCode(result.statusCode).json(response);
+    res.json(result);
 });
 
 router.get('/forecast', (req, res) => {
@@ -101,7 +128,7 @@ const getForecast = () => {
         },
     }
     request(options, async (err, res) => {
-        if (err == null) {
+        if (!err && res.statusCode == 200) {
             const data = await JSON.parse(res.body);
 
             let temp = {};
@@ -132,7 +159,7 @@ const getForecast = () => {
 
             fs.writeFile("dailyForecast.json", JSON.stringify(dailyForecast), function (err) {
                 if (err) {
-                    console.log(err);
+                    console.log("err:", err);
                 }
             });
 
@@ -154,10 +181,21 @@ const getForecast = () => {
     });
 };
 
+const storeDataInFirebase = async () => {
+    try {
+        const res = await getPVData();
+        const now = new Date().toISOString().substring(0, 19);
+        dbHistoryRef.child(now).set(res);
+    } catch (err) {
+        console.log(err);
+    }
+}
+
 const getDay = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 getForecast();
 setInterval(getForecast, 1000 * 60 * 30);
 setInterval(login, 1000 * 60 * 60 * 24);
+setInterval(storeDataInFirebase, 1000 * 30);
 const PORT = process.env.PORT || 3030;
 
 const app = express();
