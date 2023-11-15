@@ -13,6 +13,9 @@
       <v-col cols="12" md="3">
         <RangeSumCard title="Letzte Woche" :start="oneWeekAgo" :end="today" />
       </v-col>
+      <v-col cols="12" md="3">
+        <RangeSumCard title="Aktuelles Jahr" :start="startOfYear" :end="today" />
+      </v-col>
     </v-row>
   </v-container>
 </template>
@@ -28,9 +31,11 @@ export default defineComponent({
   setup() {
     const today = computed(() => new Date().toISOString().substring(0, 11));
     const oneWeekAgo = computed(() => new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().substring(0, 11));
+    const startOfYear = computed(() => new Date(new Date().setMonth(1, 1)).toISOString().substring(0, 11));
     return {
       today,
       oneWeekAgo,
+      startOfYear,
     }
   },
 });

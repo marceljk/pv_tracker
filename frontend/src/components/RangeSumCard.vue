@@ -5,7 +5,7 @@
         <v-col cols="12">
           <v-row dense v-for="val in Object.entries(todaySum)" :key="val[0]">
             <v-col cols="8">{{ liveText(val[0], val[1]) }}</v-col>
-            <v-col cols="4" class="text-right">{{ Math.round(Math.abs(val[1])).toLocaleString() }} W</v-col>
+            <v-col cols="4" class="text-right">{{ valueText(val[1]) }} </v-col>
           </v-row>
         </v-col>
       </v-row>
@@ -53,7 +53,6 @@ export default defineComponent({
       dailySumList.value.forEach((day) => {
         const measureTime = day.count / 120;
         sum = {
-          batteryPower: sum.batteryPower + (day.batteryPower / day.count) * measureTime,
           gridPowerIn: sum.gridPowerIn + (day.gridPowerIn / day.count) * measureTime,
           gridPowerOut: sum.gridPowerOut + (day.gridPowerOut / day.count) * measureTime,
           powerConsumption: sum.powerConsumption + (day.powerConsumption / day.count) * measureTime,
@@ -66,7 +65,6 @@ export default defineComponent({
 
     const liveText = (key, value) => {
       const x = {
-        batteryPower: value < 0 ? "Akku entladen" : "Akku geladen",
         gridPowerIn: "Netzeinspeisung",
         gridPowerOut: "Netzbezug",
         powerConsumption: "Stromverbrauch",
@@ -75,10 +73,19 @@ export default defineComponent({
       return x[key];
     };
 
+    const valueText = (value) => {
+      if (value < 10000 && value > -10000) {
+        return `${Math.round(Math.abs(value)).toLocaleString()} W`;
+      }
+      const kWh = Math.round(value / 100) / 10; // one digit
+      return `${Math.abs(kWh).toLocaleString()} kW`;
+    }
+
     return {
       dailySumList,
       todaySum,
       liveText,
+      valueText,
     };
   },
 });
