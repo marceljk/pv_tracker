@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "pv-viewer-6981f",
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

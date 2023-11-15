@@ -1,4 +1,3 @@
-const express = require('express');
 const request = require('request');
 const FormData = require('form-data');
 const fs = require('fs');
@@ -6,6 +5,7 @@ const _ = require("lodash");
 
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getDatabase } = require('firebase-admin/database');
+const { CronJob } = require('cron');
 
 const serviceAccount = require('./serviceAccountKey.json');
 
@@ -21,8 +21,6 @@ const dbDailyForecastRef = db.ref("dailyForecast");
 const dbWeeklyForecastRef = db.ref("weeklyForecast");
 const dbDailySumRef = db.ref("dailySum");
 
-const router = express.Router();
-
 let cookie = "";
 
 const login = () => {
@@ -36,10 +34,6 @@ const login = () => {
 }
 
 login();
-
-router.get('/', function (req, res) {
-  res.send("API !");
-});
 
 const getPVData = async () => {
   return await new Promise((resolve, rejects) => {
@@ -73,56 +67,6 @@ const getPVData = async () => {
     )
   });
 }
-
-router.get('/data', async (req, res) => {
-  const result = await getPVData();
-  if (result.statusCode !== undefined) res.statusCode(result.statusCode).json(response);
-  res.json(result);
-});
-
-router.get('/forecast', (req, res) => {
-  const rawData = fs.readFileSync('forecast.json');
-  const forecast = JSON.parse(rawData);
-
-  let arr = [...Array(18).keys()].map(x => x * 1);
-
-  const startEntry = arr[0];
-  //Shift the data until the first record is not 0 (max 16 hours)
-  for (let i = startEntry; i < (startEntry + 32); i++) {
-    if (forecast.pv_estimate[i] == 0) {
-      arr = arr.map(x => x + 1);
-    } else {
-      break;
-    }
-  }
-
-  if (Date.parse(forecast.period_end[1]) < Date.now()) {
-    arr = arr.map(x => x + 2);
-  } else if (Date.parse(forecast.period_end[0]) < Date.now()) {
-    arr = arr.map(x => x + 1);
-  }
-
-  let response = {
-    pv_estimate: [],
-    period_end: [],
-    period: "",
-  };
-  arr.forEach((index) => {
-    if (Math.ceil(forecast.pv_estimate[index]) > 0) {
-      response.pv_estimate.push(forecast.pv_estimate[index]);
-      response.period_end.push(forecast.period_end[index]);
-    }
-  });
-  response.period = forecast.period;
-
-  res.send(response);
-});
-
-router.get('/forecast/daily', (req, res) => {
-  const rawData = fs.readFileSync('dailyForecast.json');
-  const dailyForecast = JSON.parse(rawData);
-  res.send(dailyForecast);
-});
 
 const getForecast = () => {
   const options = {
@@ -196,11 +140,11 @@ const getForecast = () => {
 const storeDataInFirebase = async () => {
   try {
     const res = await getPVData();
-    counter++;
-    if (counter > 9) {
+    historyCounter++;
+    if (historyCounter > 9) {
       const now = new Date().toISOString().substring(0, 19);
       dbHistoryRef.child(now).set(res);
-      counter = 0;
+      historyCounter = 0;
     }
     dbLiveRef.set(res);
   } catch (err) {
@@ -256,16 +200,65 @@ const saveDailySum = _.debounce(() => {
     if (key < today) {
       delete sortData[key];
     }
+  });
+}, 1000);
+
+const deleteHistoryUntil = (untilDate) => {
+  if (!untilDate instanceof Date) return;
+  dbHistoryRef.orderByKey().endAt(untilDate.toISOString().substring(0, 19)).limitToLast(5000).once("value", (snap) => {
+    const numOfChilds = snap.numChildren();
+    snap.forEach((ds) => {
+      db.ref(ds.ref).remove().then(() => {
+        console.log(ds.key + " deleted from history");
+      }).catch((err) => {
+        console.log("Error: ", err);
+      });
+    });
+    if (numOfChilds > 0) {
+      deleteHistoryUntil(untilDate);
+    }
+  })
 }
 
+let historyCounter = 0;
 const getDay = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-getForecast();
-setInterval(getForecast, 1000 * 60 * 30);
-setInterval(login, 1000 * 60 * 60 * 24);
-setInterval(storeDataInFirebase, 1000 * 30);
-const PORT = process.env.PORT || 3030;
 
-const app = express();
-app.use(router);
+addDailySum();
 
-app.listen(PORT, () => console.log(`listening on ${PORT}`));
+// Load forecast
+new CronJob(
+  "0 */30 * * * *",
+  getForecast,
+  null,
+  true
+)
+
+// Relogin
+new CronJob(
+  "0 0 2 * * *",
+  storeDataInFirebase,
+  null,
+  true,
+);
+
+// Store Data to Firebase DB
+new CronJob(
+  "*/3 * * * * *",
+  storeDataInFirebase,
+  null,
+  true,
+);
+
+// Delete history
+new CronJob(
+	'0 0 0 * * *',
+	() => {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
+    deleteHistoryUntil(now);
+  },
+	null,
+	true,
+);
+
+console.log("Started");

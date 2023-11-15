@@ -1,10 +1,29 @@
-import Vue from 'vue'
+/**
+ * main.js
+ *
+ * Bootstraps Vuetify and other plugins then mounts the App`
+ */
+
+// Components
 import App from './App.vue'
-import vuetify from './plugins/vuetify'
 
-Vue.config.productionTip = false
+// Composables
+import { createApp } from 'vue'
+import { VueFire } from 'vuefire'
+import { firebaseApp } from './firebase'
 
-new Vue({
-  vuetify,
-  render: h => h(App)
-}).$mount('#app')
+// Plugins
+import { registerPlugins } from '@/plugins'
+
+const app = createApp(App)
+
+
+app
+  .use(VueFire, {
+    // imported above but could also just be created here
+    firebaseApp,
+  })
+
+registerPlugins(app)
+
+app.mount('#app')
