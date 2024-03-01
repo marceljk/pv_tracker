@@ -21,15 +21,31 @@ const dbDailyForecastRef = db.ref("dailyForecast");
 const dbWeeklyForecastRef = db.ref("weeklyForecast");
 const dbDailySumRef = db.ref("dailySum");
 
+const vartaURL = "192.168.2.119"
+
 let cookie = "";
 
 const login = () => {
   const form = new FormData();
   form.append("username", "user1");
   form.append("password", "ASrIJY");
-  form.submit('http://varta130104162/cgi/login', (err, res) => {
+/*  request({
+  		"method": "POST",
+  		"url": `http://${vartaURL}/cgi/login`,
+  		formData: {
+  			username: "user1",
+  			password: "ASrIJY",
+  		}
+  	},
+  	(err, response) => {
+  		if (err) setTimeout(login, 1000 * 30);
+  		else console.log(response);
+  	}
+  );*/
+  form.submit(`http://${vartaURL}/cgi/login`, (err, res) => {
     if (err) setTimeout(login, 1000 * 30);
-    cookie = res.headers['set-cookie'];
+    else cookie = res.headers['set-cookie'];
+    console.log("cookie", cookie);
   })
 }
 
@@ -39,7 +55,7 @@ const getPVData = async () => {
   return await new Promise((resolve, rejects) => {
     request(
       {
-        url: 'http://varta130104162/cgi/data',
+        url: `http://${vartaURL}/cgi/data`,
         headers: {
           cookie: cookie,
         }
