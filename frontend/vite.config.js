@@ -14,18 +14,18 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'PV Stats',
-        short_name: 'PV Stats',
-        description: 'Übersicht der Leistung der PV Anlage',
+        name: 'PV - Live und Statistik',
+        short_name: 'PV',
+        description: 'Leistungsübersicht der PV Anlage',
         theme_color: '#ffffff',
         icons: [
           {
-            src: 'public/pwa-192x192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'public/pwa-512x512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           }
