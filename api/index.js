@@ -18,10 +18,8 @@ const db = getDatabase();
 const dbHistoryRef = db.ref("history");
 const dbLiveRef = db.ref("live");
 const dbDailyForecastRef = db.ref("dailyForecast");
-const dbWeeklyForecastRef = db.ref("weeklyForecast");
+const dbhourlyForecastRef = db.ref("hourlyForecast");
 const dbDailySumRef = db.ref("dailySum");
-
-const vartaURL = "192.168.2.119"
 
 let cookie = "";
 
@@ -29,23 +27,9 @@ const login = () => {
   const form = new FormData();
   form.append("username", "user1");
   form.append("password", "ASrIJY");
-/*  request({
-  		"method": "POST",
-  		"url": `http://${vartaURL}/cgi/login`,
-  		formData: {
-  			username: "user1",
-  			password: "ASrIJY",
-  		}
-  	},
-  	(err, response) => {
-  		if (err) setTimeout(login, 1000 * 30);
-  		else console.log(response);
-  	}
-  );*/
-  form.submit(`http://${vartaURL}/cgi/login`, (err, res) => {
+  form.submit('http://varta130104162/cgi/login', (err, res) => {
     if (err) setTimeout(login, 1000 * 30);
-    else cookie = res.headers['set-cookie'];
-    console.log("cookie", cookie);
+    cookie = res.headers['set-cookie'];
   })
 }
 
@@ -55,7 +39,7 @@ const getPVData = async () => {
   return await new Promise((resolve, rejects) => {
     request(
       {
-        url: `http://${vartaURL}/cgi/data`,
+        url: 'http://varta130104162/cgi/data',
         headers: {
           cookie: cookie,
         }
@@ -97,6 +81,12 @@ const getForecast = () => {
     if (!err && res.statusCode == 200) {
       const data = await JSON.parse(res.body);
 
+      fs.writeFile("origForecastResponse.json", JSON.stringify(data), function (err) {
+        if (err) {
+          console.log("err:", err);
+        }
+      });
+
       let temp = {};
       data.forecasts.forEach((x) => {
         let period_date = new Date(x.period_end).setHours(0, 0);
@@ -129,22 +119,11 @@ const getForecast = () => {
         }
       });
 
-      const forecast = {
-        pv_estimate: data.forecasts.map(x => x.pv_estimate),
-        period_end: data.forecasts.map(x => x.period_end),
-        period: data.forecasts[0].period,
-      };
-
       try {
         dbDailyForecastRef.set(dailyForecast.dailyForecast);
-        dbWeeklyForecastRef.set(forecast);
+        dbhourlyForecastRef.set(data.forecasts);
       } catch { }
 
-      fs.writeFile("forecast.json", JSON.stringify(forecast), function (err) {
-        if (err) {
-          console.log(err);
-        }
-      });
       console.log("updated forecast", new Date());
     } else {
       console.log(err);
@@ -252,7 +231,7 @@ new CronJob(
 // Relogin
 new CronJob(
   "0 0 2 * * *",
-  storeDataInFirebase,
+  login,
   null,
   true,
 );
