@@ -71,10 +71,10 @@ const getPVData = async () => {
 const getForecast = () => {
   const options = {
     method: 'GET',
-    url: 'https://api.solcast.com.au/world_pv_power/forecasts?latitude=49.241698&longitude=9.058941&capacity=5&tilt=50&azimuth=180&install_date=2021-09-01&hours=168&api_key=EOSLqAy1Qml0rRTdQvu4_9E10YZNPgBo',
+    url: 'https://api.solcast.com.au/rooftop_sites/9826-93d5-4279-4280/forecasts?format=json',
     //url: 'http://localhost:3030/forecast',
     headers: {
-      accept: "application/json"
+      Authorization: process.env.PV_FORECAST_TOKEN,
     },
   }
   request(options, async (err, res) => {
