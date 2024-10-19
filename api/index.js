@@ -46,7 +46,7 @@ const getPVData = async () => {
       },
       (error, response, body) => {
         if (error || response.statusCode !== 200 || body == undefined) {
-          rejects(response);
+          rejects(error);
         }
 
         try {
