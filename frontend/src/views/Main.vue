@@ -31,7 +31,7 @@ export default defineComponent({
   setup() {
     const today = computed(() => new Date().toISOString().substring(0, 11));
     const oneWeekAgo = computed(() => new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().substring(0, 11));
-    const startOfYear = computed(() => new Date(new Date().setMonth(1, 1)).toISOString().substring(0, 11));
+    const startOfYear = computed(() => new Date(new Date().setMonth(0, 1)).toISOString().substring(0, 11));
     return {
       today,
       oneWeekAgo,
