@@ -22,3 +22,5 @@ pnpm-debug.log*
 *.sw?
 
 serviceAccountKey.json
+api/golang/forecast_response_saved.json
+api/golang/forecast_response.json
