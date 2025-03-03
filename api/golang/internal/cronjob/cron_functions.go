@@ -45,14 +45,14 @@ func updateForecast(ctx context.Context, db internal.Database, forecastRepo inte
 
 	err = db.SetHourlyForecast(ctx, hourlyData)
 	if err != nil {
-		fmt.Printf("failed setting hourly forecast in db: %v\n", err)
+		fmt.Printf("failed updating hourly forecast: %v\n", err)
 	} else {
 		fmt.Printf("updated hourly forecast\n")
 	}
 
 	err = db.SetDailyForecast(ctx, &dailyData)
 	if err != nil {
-		fmt.Printf("failed setting daily forecast in db: %v\n", err)
+		fmt.Printf("failed updating daily forecast: %v\n", err)
 	} else {
 		fmt.Printf("updated daily forecast\n")
 	}

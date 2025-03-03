@@ -18,6 +18,12 @@ type Database struct {
 	dailyForecast  *db.Ref
 	history        *db.Ref
 	dailySum       *db.Ref
+	cache          *cacheStruct
+}
+
+type cacheStruct struct {
+	nextUpdate time.Time
+	history    map[string]model.PvData
 }
 
 type DailySumStruct struct {
@@ -38,12 +44,15 @@ func NewFirebaseDbClient(ctx context.Context, config *firebase.Config, opt ...op
 		return nil, fmt.Errorf("failed to connect to firebase db: %w", err)
 	}
 
+	cache := &cacheStruct{}
+
 	return &Database{
 		live:           db.NewRef("live"),
 		hourlyForecast: db.NewRef("hourlyForecast"),
 		dailyForecast:  db.NewRef("dailyForecast"),
 		history:        db.NewRef("history"),
 		dailySum:       db.NewRef("dailySum"),
+		cache:          cache,
 	}, nil
 }
 
@@ -80,6 +89,9 @@ func (d *Database) SetHistory(ctx context.Context, pvData *model.PvData) error {
 	t := time.Now().Format(time.RFC3339)[:19] // timestamp in RFC3339 format without zone
 	if err := d.history.Child(t).Set(ctx, pvData); err != nil {
 		return fmt.Errorf("failed set history: %w", err)
+	}
+	if d.cache.history != nil {
+		d.cache.history[t] = *pvData
 	}
 	return nil
 }
@@ -119,10 +131,29 @@ func (d *Database) CleanHistoryUntil(ctx context.Context, t time.Time) error {
 	return nil
 }
 
+// caches the data from history for an hour. It also contains the data from `SetHistory()`. This is to avoid high
+// consumption of the network traffic on firebase
+func (d *Database) getHistoryCached(ctx context.Context) (map[string]model.PvData, error) {
+	source := "cache"
+	if len(d.cache.history) == 0 || d.cache.nextUpdate.Before(time.Now()) {
+		historyChilds := make(map[string]model.PvData)
+		if err := d.history.OrderByKey().Get(ctx, &historyChilds); err != nil {
+			return nil, fmt.Errorf("failed get history: %w", err)
+		}
+		d.cache.history = historyChilds
+		d.cache.nextUpdate = time.Now().Add(time.Hour)
+		source = "database"
+	}
+
+	fmt.Printf("[daily sum] - get data from %s\n", source)
+
+	return d.cache.history, nil
+}
+
 func (d *Database) calcDailySum(ctx context.Context) (map[string]DailySumStruct, error) {
-	historyChilds := make(map[string]model.PvData)
-	if err := d.history.OrderByKey().Get(ctx, &historyChilds); err != nil {
-		return nil, fmt.Errorf("failed get history to set daily sum: %w", err)
+	historyChilds, err := d.getHistoryCached(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed set daily sum: %w", err)
 	}
 
 	dailySum := make(map[string]DailySumStruct)
