@@ -47,16 +47,17 @@ func initCronJobs(c *cron.Cron, pvRepo internal.PvRepository, db internal.Databa
 		updateForecast(ctx, db, forecastRepo)
 	})
 
-	// Every 6 hours cleans history that is older than 24 hours
-	c.AddFunc("0 0 */6 * * *", func() {
+	// Cleans history that is from the past day
+	c.AddFunc("0 0 3,6 * * *", func() {
 		ctx := context.Background()
-		durationOneDay := time.Hour * 24
-		t := time.Now().Add(durationOneDay * (-1))
-		err := db.CleanHistoryUntil(ctx, t)
+		now := time.Now()
+		year, month, day := now.Date()
+		midnight := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
+		err := db.CleanHistoryUntil(ctx, midnight)
 		if err != nil {
-			fmt.Printf("[cleanup] - failed cleaning history until %q %v\n", t.String(), err)
+			fmt.Printf("[cleanup] - failed cleaning history until %q %v\n", midnight.String(), err)
 		} else {
-			fmt.Printf("[cleanup] - cleaned history until %q\n", t.String())
+			fmt.Printf("[cleanup] - cleaned history until %q\n", midnight.String())
 		}
 	})
 }
