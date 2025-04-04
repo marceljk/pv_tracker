@@ -44,7 +44,6 @@ export default defineComponent({
 
     const todaySum = computed(() => {
       let sum = {
-        batteryPower: 0,
         gridPowerIn: 0,
         gridPowerOut: 0,
         powerConsumption: 0,
