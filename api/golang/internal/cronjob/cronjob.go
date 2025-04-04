@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/marceljk/pv_tracker_go/internal"
+	"github.com/marceljk/pv_tracker/api/golang/internal"
 	"github.com/robfig/cron/v3"
 )
 

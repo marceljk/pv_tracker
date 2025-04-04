@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/marceljk/pv_tracker_go/internal/model"
+	"github.com/marceljk/pv_tracker/api/golang/internal/model"
 )
 
 func MapDailyForecast(u model.ForecastResponseModel) model.DailyForecast {
@@ -53,7 +53,7 @@ func MapDailyForecast(u model.ForecastResponseModel) model.DailyForecast {
 
 func weekdayToGermanDays(w time.Weekday) string {
 	weekdays := [7]string{"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"}
-	if 0 < int(w) && int(w) < len(weekdays) {
+	if 0 <= int(w) && int(w) < len(weekdays) {
 		return weekdays[w]
 	}
 	return w.String()

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/marceljk/pv_tracker_go/internal"
-	"github.com/marceljk/pv_tracker_go/internal/utils"
+	"github.com/marceljk/pv_tracker/api/golang/internal"
+	"github.com/marceljk/pv_tracker/api/golang/internal/utils"
 )
 
 func updateLiveData(ctx context.Context, pvRepo internal.PvRepository, db internal.Database) {

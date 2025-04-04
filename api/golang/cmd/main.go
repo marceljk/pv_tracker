@@ -7,11 +7,11 @@ import (
 	"os"
 	"sync"
 
-	"github.com/marceljk/pv_tracker_go/internal/cronjob"
-	firebaserealtimedb "github.com/marceljk/pv_tracker_go/internal/firebase-realtime-db"
-	"github.com/marceljk/pv_tracker_go/internal/model"
-	"github.com/marceljk/pv_tracker_go/internal/solcast"
-	sunnytripower "github.com/marceljk/pv_tracker_go/internal/sunny-tripower"
+	"github.com/marceljk/pv_tracker/api/golang/internal/cronjob"
+	firebaserealtimedb "github.com/marceljk/pv_tracker/api/golang/internal/firebase-realtime-db"
+	"github.com/marceljk/pv_tracker/api/golang/internal/model"
+	"github.com/marceljk/pv_tracker/api/golang/internal/solcast"
+	sunnytripower "github.com/marceljk/pv_tracker/api/golang/internal/sunny-tripower"
 
 	firebase "firebase.google.com/go/v4"
 	"google.golang.org/api/option"

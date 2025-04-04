@@ -8,7 +8,7 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/db"
-	"github.com/marceljk/pv_tracker_go/internal/model"
+	"github.com/marceljk/pv_tracker/api/golang/internal/model"
 	"google.golang.org/api/option"
 )
 

@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/marceljk/pv_tracker_go/internal/model"
+	"github.com/marceljk/pv_tracker/api/golang/internal/model"
 )
 
 type Repo struct {
