@@ -16,8 +16,6 @@ const (
 	baseUrl   = "http://varta130104162"
 	loginPath = "/cgi/login"
 	dataPath  = "/cgi/data"
-
-	loginHeaderCred = "set-cookie"
 )
 
 type Repo struct {

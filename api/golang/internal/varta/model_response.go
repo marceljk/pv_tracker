@@ -1249,7 +1249,7 @@ func (r *rawApiResponse) mapToPvData() model.PvData {
 	result.GridPowerW = r.Pulse.ProcImg.GridPowerW
 	result.PvPowerW = r.Common.PowerW
 	result.PowerConsumptionW = int(math.Round(powerConsumption))
-	result.BatteryPercent = uint8(r.Pulse.ProcImg.ActivePowerAcW)
+	result.BatteryPowerW = int(math.Round(r.Pulse.ProcImg.ActivePowerAcW))
 	return result
 
 }
