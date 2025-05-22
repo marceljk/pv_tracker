@@ -17,6 +17,9 @@ type Config struct {
 	FirebaseCredentialsPath string `env:"FIREBASE_CREDENTIALS_FILE_PATH,required"`
 
 	SmaBaseUrl string `env:"SMA_BASE_URL"`
+
+	VartaUsername string `env:"VARTA_USERNAME,required"`
+	VartaPassword string `env:"VARTA_PASSWORD,required"`
 }
 
 func LoadEnvs(cfg *Config) error {

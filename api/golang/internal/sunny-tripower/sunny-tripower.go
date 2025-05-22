@@ -20,6 +20,11 @@ func NewRepo(baseUrl string) *Repo {
 	}
 }
 
+func (r *Repo) Login() error {
+	// not implemented, just for interface
+	return nil
+}
+
 func (r *Repo) GetLiveData() (*model.PvData, error) {
 	result := &model.PvData{}
 

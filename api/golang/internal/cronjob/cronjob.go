@@ -60,6 +60,14 @@ func initCronJobs(c *cron.Cron, pvRepo internal.PvRepository, db internal.Databa
 			fmt.Printf("[cleanup] - cleaned history until %q\n", midnight.String())
 		}
 	})
+
+	c.AddFunc("0 0 */6 * * *", func() {
+		if err := pvRepo.Login(); err != nil {
+			fmt.Printf("[login] - failed to refresh credentials\n")
+		} else {
+			fmt.Printf("[login] - refreshed credentials\n")
+		}
+	})
 }
 
 func (c *Cronjob) Start() {

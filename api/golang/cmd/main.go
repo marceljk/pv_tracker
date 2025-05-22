@@ -7,13 +7,12 @@ import (
 	"os"
 	"sync"
 
+	firebase "firebase.google.com/go/v4"
 	"github.com/marceljk/pv_tracker/api/golang/internal/cronjob"
 	firebaserealtimedb "github.com/marceljk/pv_tracker/api/golang/internal/firebase-realtime-db"
 	"github.com/marceljk/pv_tracker/api/golang/internal/model"
 	"github.com/marceljk/pv_tracker/api/golang/internal/solcast"
-	sunnytripower "github.com/marceljk/pv_tracker/api/golang/internal/sunny-tripower"
-
-	firebase "firebase.google.com/go/v4"
+	"github.com/marceljk/pv_tracker/api/golang/internal/varta"
 	"google.golang.org/api/option"
 )
 
@@ -28,28 +27,15 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	kickCronJobs(cfg)
+	if err := startCronJobs(cfg); err != nil {
+		fmt.Printf("failed to start: %v", err)
+		os.Exit(1)
+	}
 
 	wg.Wait()
-
-	// ticker := time.NewTicker(time.Nanosecond)
-	// quit := make(chan struct{})
-	// go func() {
-	// 	defer wg.Done()
-	// 	for {
-	// 		select {
-	// 		case <-ticker.C:
-	// 			start(cfg)
-	// 			wg.Done()
-	// 		case <-quit:
-	// 			ticker.Stop()
-	// 		}
-	// 	}
-	// }()
-	// wg.Wait()
 }
 
-func kickCronJobs(cfg model.Config) error {
+func startCronJobs(cfg model.Config) error {
 	ctx := context.Background()
 
 	// Firebase init
@@ -63,12 +49,15 @@ func kickCronJobs(cfg model.Config) error {
 		return fmt.Errorf("failed to initialize firebase db: %w", err)
 	}
 
-	// Inverter init
-	repo := sunnytripower.NewRepo(cfg.SmaBaseUrl)
+	// Varta init
+	vartaClient := varta.NewVartaRepo(cfg.VartaUsername, cfg.VartaPassword)
+	if err := vartaClient.Login(); err != nil {
+		return fmt.Errorf("failed to login to varta: %w", err)
+	}
 
 	solcastClient := solcast.NewSolcastClient(cfg.SolcastEndpoint, cfg.SolcastApiKey, false)
 
-	c := cronjob.NewCronjob(repo, db, solcastClient)
+	c := cronjob.NewCronjob(vartaClient, db, solcastClient)
 	c.Start()
 	return nil
 }

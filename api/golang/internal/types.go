@@ -9,6 +9,7 @@ import (
 
 type PvRepository interface {
 	GetLiveData() (*model.PvData, error)
+	Login() error
 }
 
 type Database interface {
