@@ -66,7 +66,7 @@ func (f *SolcastClient) fetchForecast() (*model.ForecastResponseModel, error) {
 	var forecastResponse model.ForecastResponseModel
 	err = json.Unmarshal(data, &forecastResponse)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal response: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal response. data: %q err: %w", data, err)
 	}
 	os.WriteFile("forecast_response.json", data, 0o777)
 	return &forecastResponse, nil
