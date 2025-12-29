@@ -1,4 +1,4 @@
-const request = require('request');
+const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const _ = require("lodash");
@@ -21,54 +21,51 @@ const dbDailyForecastRef = db.ref("dailyForecast");
 const dbhourlyForecastRef = db.ref("hourlyForecast");
 const dbDailySumRef = db.ref("dailySum");
 
+const vartaCred = {
+  username: process.env.VARTA_USERNAME,
+  password: process.env.VARTA_PASSWORD
+}
+
 let cookie = "";
 
-const login = () => {
+const login = async () => {
   const form = new FormData();
-  form.append("username", "user1");
-  form.append("password", "ASrIJY");
-  form.submit('http://varta130104162/cgi/login', (err, res) => {
-    if (err) setTimeout(login, 1000 * 30);
+  form.append("username", vartaCred.username);
+  form.append("password", vartaCred.password);
+  try {
+    const res = await axios.post('http://varta130104162/cgi/login', form, { headers: form.getHeaders() });
     cookie = res.headers['set-cookie'];
-  })
+  } catch (err) {
+    setTimeout(login, 1000 * 30);
+  }
 }
 
 login();
 
 const getPVData = async () => {
-  return await new Promise((resolve, rejects) => {
-    request(
-      {
-        url: 'http://varta130104162/cgi/data',
-        headers: {
-          cookie: cookie,
-        }
-      },
-      (error, response, body) => {
-        if (error || response.statusCode !== 200 || body == undefined) {
-          rejects(error);
-        }
-
-        try {
-          const data = JSON.parse(body)
-          resolve({
-            batteryPercent: data.pulse.procImg.soc_pct,
-            gridPower: data.pulse.procImg.gridPower_W,
-            pvPower: data.common.power_W,
-            powerConsumption: Math.round(data.common.power_W - data.pulse.procImg.gridPower_W - data.pulse.procImg.activePowerAc_W),
-            batteryPower: Math.round(data.pulse.procImg.activePowerAc_W)
-          });
-        } catch (err) {
-          console.log("getPVData() err:", err);
-          console.log("getPVData() body:", body);
-          rejects(err);
-        }
+  try {
+    const response = await axios.get('http://varta130104162/cgi/data', {
+      headers: {
+        cookie: cookie,
       }
-    )
-  });
+    });
+
+    const data = response.data;
+    return {
+      batteryPercent: data.pulse.procImg.soc_pct,
+      gridPower: data.pulse.procImg.gridPower_W,
+      pvPower: data.common.power_W,
+      powerConsumption: Math.round(data.common.power_W - data.pulse.procImg.gridPower_W - data.pulse.procImg.activePowerAc_W),
+      batteryPower: Math.round(data.pulse.procImg.activePowerAc_W)
+    };
+  } catch (err) {
+    console.log("getPVData() err:", err);
+    console.log("getPVData() body:", err.response.data);
+    throw err;
+  }
 }
 
-const getForecast = () => {
+const getForecast = async () => {
   const options = {
     method: 'GET',
     url: 'https://api.solcast.com.au/rooftop_sites/9826-93d5-4279-4280/forecasts?format=json',
@@ -77,59 +74,57 @@ const getForecast = () => {
       Authorization: process.env.PV_FORECAST_TOKEN,
     },
   }
-  request(options, async (err, res) => {
-    if (!err && res.statusCode == 200) {
-      const data = await JSON.parse(res.body);
+  try {
+    const res = await axios(options);
+    const data = res.data;
 
-      fs.writeFile("origForecastResponse.json", JSON.stringify(data), function (err) {
-        if (err) {
-          console.log("err:", err);
-        }
-      });
-
-      let temp = {};
-      data.forecasts.forEach((x) => {
-        let period_date = new Date(x.period_end).setHours(0, 0);
-        if (temp[period_date] == undefined) {
-          temp[period_date] = x.pv_estimate;
-        } else {
-          temp[period_date] += x.pv_estimate;
-        }
-      });
-
-      Object.keys(temp).forEach(x => {
-        temp[x] = (Math.round((temp[x] / 2) * 1) / 1);
-      });
-
-      let dailyForecast = {
-        dailyForecast: {}
-      };
-      Object.keys(temp).forEach(x => {
-        const day = new Date(Number(x)).getDay();
-        dailyForecast.dailyForecast[x] = {
-          estimate: temp[x],
-          day: getDay[day]
-        };
+    fs.writeFile("origForecastResponse.json", JSON.stringify(data), function (err) {
+      if (err) {
+        console.log("err:", err);
       }
-      );
+    });
 
-      fs.writeFile("dailyForecast.json", JSON.stringify(dailyForecast), function (err) {
-        if (err) {
-          console.log("err:", err);
-        }
-      });
+    let temp = {};
+    data.forecasts.forEach((x) => {
+      let period_date = new Date(x.period_end).setHours(0, 0);
+      if (temp[period_date] == undefined) {
+        temp[period_date] = x.pv_estimate;
+      } else {
+        temp[period_date] += x.pv_estimate;
+      }
+    });
 
-      try {
-        dbDailyForecastRef.set(dailyForecast.dailyForecast);
-        dbhourlyForecastRef.set(data.forecasts);
-      } catch { }
+    Object.keys(temp).forEach(x => {
+      temp[x] = (Math.round((temp[x] / 2) * 1) / 1);
+    });
 
-      console.log("updated forecast", new Date());
-    } else {
-      console.log(err);
+    let dailyForecast = {
+      dailyForecast: {}
+    };
+    Object.keys(temp).forEach(x => {
+      const day = new Date(Number(x)).getDay();
+      dailyForecast.dailyForecast[x] = {
+        estimate: temp[x],
+        day: getDay[day]
+      };
     }
+    );
 
-  });
+    fs.writeFile("dailyForecast.json", JSON.stringify(dailyForecast), function (err) {
+      if (err) {
+        console.log("err:", err);
+      }
+    });
+
+    try {
+      dbDailyForecastRef.set(dailyForecast.dailyForecast);
+      dbhourlyForecastRef.set(data.forecasts);
+    } catch { }
+
+    console.log("updated forecast", new Date());
+  } catch (err) {
+    console.log(err);
+  }
 };
 
 const storeDataInFirebase = async () => {
@@ -246,14 +241,14 @@ new CronJob(
 
 // Delete history
 new CronJob(
-	'0 0 0 * * *',
-	() => {
+  '0 0 0 * * *',
+  () => {
     const now = new Date();
     now.setDate(now.getDate() - 1);
     deleteHistoryUntil(now);
   },
-	null,
-	true,
+  null,
+  true,
 );
 
 console.log("Started");
