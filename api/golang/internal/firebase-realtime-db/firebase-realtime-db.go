@@ -1,8 +1,13 @@
 package firebaserealtimedb
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,12 +23,7 @@ type Database struct {
 	dailyForecast  *db.Ref
 	history        *db.Ref
 	dailySum       *db.Ref
-	cache          *cacheStruct
-}
-
-type cacheStruct struct {
-	nextUpdate time.Time
-	history    map[string]model.PvData
+	databaseURL    string
 }
 
 type DailySumStruct struct {
@@ -33,26 +33,30 @@ type DailySumStruct struct {
 	Count        int `json:"count"`
 }
 
+type sseEvent struct {
+	Event string          `json:"event"`
+	Path  string          `json:"path"`
+	Data  json.RawMessage `json:"data"`
+}
+
 func NewFirebaseDbClient(ctx context.Context, config *firebase.Config, opt ...option.ClientOption) (*Database, error) {
 	app, err := firebase.NewApp(ctx, config, opt...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create firebase app: %w", err)
 	}
 
-	db, err := app.Database(ctx)
+	client, err := app.Database(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to firebase db: %w", err)
 	}
 
-	cache := &cacheStruct{}
-
 	return &Database{
-		live:           db.NewRef("live"),
-		hourlyForecast: db.NewRef("hourlyForecast"),
-		dailyForecast:  db.NewRef("dailyForecast"),
-		history:        db.NewRef("history"),
-		dailySum:       db.NewRef("dailySum"),
-		cache:          cache,
+		live:           client.NewRef("live"),
+		hourlyForecast: client.NewRef("hourlyForecast"),
+		dailyForecast:  client.NewRef("dailyForecast"),
+		history:        client.NewRef("history"),
+		dailySum:       client.NewRef("dailySum"),
+		databaseURL:    config.DatabaseURL,
 	}, nil
 }
 
@@ -90,22 +94,106 @@ func (d *Database) SetHistory(ctx context.Context, pvData *model.PvData) error {
 	if err := d.history.Child(t).Set(ctx, pvData); err != nil {
 		return fmt.Errorf("failed set history: %w", err)
 	}
-	if d.cache.history != nil {
-		d.cache.history[t] = *pvData
-	}
 	return nil
 }
 
-func (d *Database) UpdateDailySum(ctx context.Context) error {
-	dailySum, err := d.calcDailySum(ctx)
+func (d *Database) UpdateDailySum(ctx context.Context, CtxCancel context.CancelFunc) {
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02T15:04:05")
+
+	u, err := url.Parse(d.databaseURL)
 	if err != nil {
-		return fmt.Errorf("failed calc dailySum: %w", err)
+		fmt.Printf("Stream failed: %v\n", err)
+		CtxCancel()
+		return
 	}
-	err = d.saveDailySum(ctx, dailySum)
+	u.Path = "/history.json"
+	q := u.Query()
+	q.Set("orderBy", `"$key"`)
+	q.Set("startAt", fmt.Sprintf(`"%s"`, yesterday))
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
-		return fmt.Errorf("failed saving dailySum: %w", err)
+		fmt.Printf("Stream failed: %v\n", err)
+		CtxCancel()
+		return
 	}
-	return nil
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Printf("Stream failed: %v\n", err)
+		CtxCancel()
+		return
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	// Set a larger buffer size for the scanner to prevent "token too long" errors
+	// when processing large data payloads from the Firebase stream.
+	const maxTokenSize = 10 * 1024 * 1024 // 10MB
+	scanner.Buffer(make([]byte, 0, 64*1024), maxTokenSize)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		jsonData := strings.TrimPrefix(line, "data: ")
+		if jsonData == "null" { // for keep-alive events
+			continue
+		}
+
+		var event sseEvent
+		if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
+			fmt.Printf("UpdateDailySum: failed to unmarshal event data: %v\n", err)
+			continue
+		}
+
+		if event.Path == "/" {
+			var data map[string]model.PvData
+			if err := json.Unmarshal(event.Data, &data); err != nil {
+				fmt.Printf("UpdateDailySum: failed to unmarshal initial data: %v\n", err)
+				continue
+			}
+
+			//do initial calculation
+			for key, value := range data {
+				if len(key) >= 10 {
+					day := key[:10]
+					if err := d.updateDailySum(ctx, day, &value); err != nil {
+						fmt.Printf("UpdateDailySum: failed to update sum for day %s: %v\n", day, err)
+					}
+				}
+			}
+		} else {
+			if len(event.Path) < 11 || !strings.HasPrefix(event.Path, "/") {
+				continue
+			}
+			if string(event.Data) == "null" { // Data for deleted node
+				continue
+			}
+
+			var data model.PvData
+			if err := json.Unmarshal(event.Data, &data); err != nil {
+				fmt.Printf("UpdateDailySum: failed to unmarshal update data for path %s: %v\n", event.Path, err)
+				continue
+			}
+
+			day := event.Path[1:11]
+			if strings.Contains(day, "/") {
+				continue
+			}
+			if err := d.updateDailySum(ctx, day, &data); err != nil {
+				fmt.Printf("UpdateDailySum: failed to update sum for day %s: %v\n", day, err)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("Stream failed: %v\n", err)
+	}
+	CtxCancel()
 }
 
 func (d *Database) CleanHistoryUntil(ctx context.Context, t time.Time) error {
@@ -131,81 +219,62 @@ func (d *Database) CleanHistoryUntil(ctx context.Context, t time.Time) error {
 	return nil
 }
 
-// caches the data from history for an hour. It also contains the data from `SetHistory()`. This is to avoid high
-// consumption of the network traffic on firebase
-func (d *Database) getHistoryCached(ctx context.Context) (map[string]model.PvData, error) {
-	source := "cache"
-	if len(d.cache.history) == 0 || d.cache.nextUpdate.Before(time.Now()) {
-		historyChilds := make(map[string]model.PvData)
-		if err := d.history.OrderByKey().Get(ctx, &historyChilds); err != nil {
-			return nil, fmt.Errorf("failed get history: %w", err)
-		}
-		d.cache.history = historyChilds
-		d.cache.nextUpdate = time.Now().Add(time.Hour)
-		source = "database"
+func (d *Database) updateDailySum(ctx context.Context, day string, pvData *model.PvData) error {
+	var dailySum DailySumStruct
+	if err := d.dailySum.Child(day).Get(ctx, &dailySum); err != nil {
+		return fmt.Errorf("failed get dailySum for day %s: %w", day, err)
 	}
 
-	fmt.Printf("[daily sum] - get data from %s\n", source)
+	var gridPowerIn int
+	var gridPowerOut int
+	if pvData.GridPowerW > 0 {
+		gridPowerIn = pvData.GridPowerW
+	} else {
+		gridPowerOut = pvData.GridPowerW
+	}
 
-	return d.cache.history, nil
+	if dailySum.Count > 0 {
+		dailySum = DailySumStruct{
+			PvData: model.PvData{
+				BatteryPercent:    dailySum.BatteryPercent + pvData.BatteryPercent,
+				BatteryPowerW:     dailySum.BatteryPowerW + pvData.BatteryPowerW,
+				PowerConsumptionW: dailySum.PowerConsumptionW + pvData.PowerConsumptionW,
+				PvPowerW:          dailySum.PvPowerW + pvData.PvPowerW,
+			},
+			GridPowerIn:  dailySum.GridPowerIn + gridPowerIn,
+			GridPowerOut: dailySum.GridPowerOut + gridPowerOut,
+			Count:        dailySum.Count + 1,
+		}
+	} else {
+		dailySum = DailySumStruct{
+			PvData: model.PvData{
+				BatteryPercent:    pvData.BatteryPercent,
+				BatteryPowerW:     pvData.BatteryPowerW,
+				PowerConsumptionW: pvData.PowerConsumptionW,
+				PvPowerW:          pvData.PvPowerW,
+			},
+			GridPowerIn:  gridPowerIn,
+			GridPowerOut: gridPowerOut,
+			Count:        1,
+		}
+	}
+
+	if err := d.dailySum.Child(day).Set(ctx, dailySum); err != nil {
+		return fmt.Errorf("failed to set dailySum for day %s: %w", day, err)
+	}
+	return nil
 }
 
-func (d *Database) calcDailySum(ctx context.Context) (map[string]DailySumStruct, error) {
-	historyChilds, err := d.getHistoryCached(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed set daily sum: %w", err)
+func (e *sseEvent) UnmarshalJSON(b []byte) error {
+	var eventData struct {
+		Path string          `json:"path"`
+		Data json.RawMessage `json:"data"`
 	}
-
-	dailySum := make(map[string]DailySumStruct)
-
-	for key, child := range historyChilds {
-		day := key[:11]
-		var gridPowerIn int
-		var gridPowerOut int
-		if child.GridPowerW > 0 {
-			gridPowerIn = child.GridPowerW
-		} else {
-			gridPowerOut = child.GridPowerW
-		}
-
-		if existing, ok := dailySum[day]; ok {
-			dailySum[day] = DailySumStruct{
-				PvData: model.PvData{
-					BatteryPercent:    existing.BatteryPercent + child.BatteryPercent,
-					BatteryPowerW:     existing.BatteryPowerW + child.BatteryPowerW,
-					PowerConsumptionW: existing.PowerConsumptionW + child.PowerConsumptionW,
-					PvPowerW:          existing.PvPowerW + child.PvPowerW,
-				},
-				GridPowerIn:  existing.GridPowerIn + gridPowerIn,
-				GridPowerOut: existing.GridPowerOut + gridPowerOut,
-				Count:        existing.Count + 1,
-			}
-		} else {
-			dailySum[day] = DailySumStruct{
-				PvData: model.PvData{
-					BatteryPercent:    child.BatteryPercent,
-					BatteryPowerW:     child.BatteryPowerW,
-					PowerConsumptionW: child.PowerConsumptionW,
-				},
-				GridPowerIn:  gridPowerIn,
-				GridPowerOut: gridPowerOut,
-				Count:        1,
-			}
-		}
+	if err := json.Unmarshal(b, &eventData); err != nil {
+		return err
 	}
+	e.Path = eventData.Path
+	e.Data = eventData.Data
 
-	return dailySum, nil
-}
-
-func (d *Database) saveDailySum(ctx context.Context, dailySum map[string]DailySumStruct) error {
-	var errs []error
-	for day, value := range dailySum {
-		if err := d.dailySum.Child(day).Set(ctx, value); err != nil {
-			errs = append(errs, fmt.Errorf("failed set %q in dailySum: %w", day, err))
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("failed saving dailySums: %v", errs)
-	}
 	return nil
 }

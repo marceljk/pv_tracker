@@ -23,6 +23,7 @@ func NewCronjob(pvRepo internal.PvRepository, db internal.Database, forecastRepo
 	}
 }
 
+
 func initCronJobs(c *cron.Cron, pvRepo internal.PvRepository, db internal.Database, forecastRepo internal.ForecastRepository) {
 	// Every 3 seconds update live data
 	c.AddFunc("*/3 * * * * *", func() {
@@ -36,9 +37,9 @@ func initCronJobs(c *cron.Cron, pvRepo internal.PvRepository, db internal.Databa
 		ctx := context.Background()
 		fmt.Printf("[history] - update history\n")
 		pushHistoryData(ctx, pvRepo, db)
-		fmt.Printf("[daily sum] - update daily sum\n")
-		db.UpdateDailySum(ctx)
 	})
+
+	startDailySumUpdate(db)
 
 	// Every 30 min update forecast
 	c.AddFunc("0 */30 * * * *", func() {
@@ -69,6 +70,12 @@ func initCronJobs(c *cron.Cron, pvRepo internal.PvRepository, db internal.Databa
 		}
 	})
 }
+
+func startDailySumUpdate(db internal.Database) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go db.UpdateDailySum(ctx, cancel)
+}
+
 
 func (c *Cronjob) Start() {
 	c.cron.Start()

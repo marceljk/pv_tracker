@@ -55,7 +55,7 @@ func startCronJobs(cfg model.Config) error {
 		return fmt.Errorf("failed to login to varta: %w", err)
 	}
 
-	solcastClient := solcast.NewSolcastClient(cfg.SolcastEndpoint, cfg.SolcastApiKey, false)
+	solcastClient := solcast.NewSolcastClient(cfg.SolcastEndpoint, cfg.SolcastApiKey, true)
 
 	c := cronjob.NewCronjob(vartaClient, db, solcastClient)
 	c.Start()

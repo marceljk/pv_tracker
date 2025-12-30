@@ -17,7 +17,7 @@ type Database interface {
 	SetHourlyForecast(context.Context, *model.ForecastResponseModel) error
 	SetDailyForecast(context.Context, *model.DailyForecast) error
 	SetHistory(context.Context, *model.PvData) error
-	UpdateDailySum(context.Context) error
+	UpdateDailySum(context.Context, context.CancelFunc)
 	CleanHistoryUntil(context.Context, time.Time) error
 }
 
