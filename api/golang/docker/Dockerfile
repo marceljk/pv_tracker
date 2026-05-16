@@ -1,6 +1,6 @@
 # docker build -t pv_tracker_go:v0.1.0-beta --file api/golang/docker/Dockerfile .
 # Build the application from source
-FROM golang:1.25 AS build-stage
+FROM golang:1.26 AS build-stage
 
 WORKDIR /app
 
