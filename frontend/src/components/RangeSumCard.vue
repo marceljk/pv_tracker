@@ -4,7 +4,7 @@
       <v-row v-if="dailySumList">
         <v-col cols="12">
           <v-row dense v-for="val in Object.entries(todaySum)" :key="val[0]">
-            <v-col cols="8">{{ liveText(val[0], val[1]) }}</v-col>
+            <v-col cols="8">{{ liveText(val[0]) }}</v-col>
             <v-col cols="4" class="text-right">{{ valueText(val[1]) }} </v-col>
           </v-row>
         </v-col>
@@ -62,7 +62,7 @@ export default defineComponent({
       return sum;
     });
 
-    const liveText = (key, value) => {
+    const liveText = (key) => {
       const x = {
         gridPowerIn: "Netzeinspeisung",
         gridPowerOut: "Netzbezug",

@@ -12,7 +12,7 @@
       <v-row v-if="dataFromDb">
         <v-col cols="12">
           <v-row dense v-for="val in Object.entries(dataSum)" :key="val[0]">
-            <v-col cols="8">{{ liveText(val[0], val[1]) }}</v-col>
+            <v-col cols="8">{{ liveText(val[0]) }}</v-col>
             <v-col cols="4" class="text-right">{{ valueText(val[1]) }} </v-col>
           </v-row>
         </v-col>
@@ -22,7 +22,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch } from "vue";
+import { defineComponent, ref, computed } from "vue";
 import { useDatabase, useDatabaseList } from "vuefire";
 import {
   ref as dbRef,
@@ -38,7 +38,7 @@ export default defineComponent({
       type: String,
     },
   },
-  setup(props) {
+  setup() {
     const startDate = ref("");
     const endDate = ref("");
 
@@ -86,7 +86,7 @@ export default defineComponent({
       return sum;
     });
 
-    const liveText = (key, value) => {
+    const liveText = (key) => {
       const x = {
         gridPowerIn: "Netzeinspeisung",
         gridPowerOut: "Netzbezug",
