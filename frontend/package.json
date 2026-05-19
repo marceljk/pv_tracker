@@ -11,7 +11,7 @@
     "lint": "eslint . --fix"
   },
   "dependencies": {
-    "@mdi/font": "7.0.96",
+    "@mdi/font": "7.4.47",
     "chart.js": "^4.4.2",
     "core-js": "^3.36.1",
     "firebase": "^12.13.0",
