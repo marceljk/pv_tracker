@@ -1,4 +1,4 @@
-FROM node:26.1.0-bullseye-slim 
+FROM node:26.2.0-bullseye-slim 
 WORKDIR /usr/src/app 
 COPY . /usr/src/app 
 RUN npm install
