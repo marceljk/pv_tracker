@@ -1,0 +1,344 @@
+:root {
+  --bg-primary: #0a0d16;
+  --bg-card: rgba(15, 23, 42, 0.45);
+  --bg-card-hover: rgba(23, 37, 68, 0.6);
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --color-pv: #10b981; /* Emerald green */
+  --color-pv-glow: rgba(16, 185, 129, 0.15);
+  --color-consumption: #3b82f6; /* Blue */
+  --color-consumption-glow: rgba(59, 130, 246, 0.15);
+  --color-battery: #f59e0b; /* Amber */
+  --color-battery-glow: rgba(245, 158, 11, 0.15);
+  --color-grid-in: #06b6d4; /* Cyan - Netzeinspeisung */
+  --color-grid-in-glow: rgba(6, 182, 212, 0.15);
+  --color-grid-out: #f43f5e; /* Rose - Netzbezug */
+  --color-grid-out-glow: rgba(244, 63, 94, 0.15);
+
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Base Body Styles */
+body {
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.5) 0px, transparent 100%),
+    radial-gradient(at 80% 100%, rgba(245, 158, 11, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+  background-size: cover;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 13, 22, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Vuetify Typography overrides */
+.v-application {
+  font-family: var(--font-body) !important;
+}
+
+.v-card-title, .text-h4, .text-h5, .text-h6 {
+  font-family: var(--font-heading) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Premium Card Glassmorphism */
+.v-card {
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5) !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  overflow: hidden;
+}
+
+.v-card:hover {
+  border-color: var(--border-hover) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 20px 0 rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Glow effects for cards based on metrics */
+.glow-pv {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 15px -3px var(--color-pv-glow) !important;
+}
+.glow-pv:hover {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 25px 2px rgba(16, 185, 129, 0.15) !important;
+}
+
+.glow-consumption {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 15px -3px var(--color-consumption-glow) !important;
+}
+.glow-consumption:hover {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 25px 2px rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Beautiful Custom App Bar */
+.v-app-bar {
+  background: rgba(10, 13, 22, 0.6) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+}
+
+.v-app-bar-title {
+  font-family: var(--font-heading) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  background: linear-gradient(135deg, #f8fafc 30%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom visual styles for Live status card */
+.live-node {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.live-node:hover {
+  background: rgba(23, 37, 68, 0.4);
+  border-color: var(--border-hover);
+}
+
+.live-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.live-node.pv::before { background: var(--color-pv); }
+.live-node.consumption::before { background: var(--color-consumption); }
+.live-node.battery::before { background: var(--color-battery); }
+.live-node.grid::before { background: var(--color-grid-in); }
+.live-node.grid-out::before { background: var(--color-grid-out); }
+
+/* Animated Battery flow indicator */
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+    box-shadow: 0 0 0px rgba(245, 158, 11, 0);
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+    box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.35);
+  }
+}
+
+.pulse-battery {
+  animation: pulse-glow 2s infinite ease-in-out;
+  border-radius: 50% !important;
+  overflow: visible !important;
+}
+
+/* Custom Table Redesign */
+.v-data-table {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.v-data-table-header__content {
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  text-transform: uppercase;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.05em;
+}
+
+.v-data-table__tr {
+  transition: background-color 0.2s ease !important;
+}
+
+.v-data-table__tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.v-data-table__td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-size: 0.875rem !important;
+}
+
+/* Custom style for expanded row charts */
+.expanded-row-container {
+  padding: 16px;
+  background: rgba(10, 15, 30, 0.4);
+  border-radius: 12px;
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Beautiful Inputs */
+.v-field {
+  background: rgba(15, 23, 42, 0.5) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.v-field--focused {
+  border-color: var(--color-consumption) !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15) !important;
+}
+
+.v-field__outline {
+  display: none !important; /* Hide default vuetify outline border */
+}
+
+.v-label {
+  color: var(--text-secondary) !important;
+}
+
+/* Micro animations */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.stat-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* Flow line visualizer */
+.flow-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1.5rem 0;
+  padding: 0 1rem;
+}
+
+.flow-line {
+  flex-grow: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  margin: 0 10px;
+}
+
+.flow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: absolute;
+  top: -2px;
+  left: 0;
+}
+
+.flow-dot.to-left {
+  animation: flowLeft 2s linear infinite;
+}
+
+.flow-dot.to-right {
+  animation: flowRight 2s linear infinite;
+}
+
+@keyframes flowLeft {
+  0% { left: 100%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 0%; opacity: 0; }
+}
+
+@keyframes flowRight {
+  0% { left: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Mobile-first Media Queries */
+@media (max-width: 600px) {
+  .pa-6 {
+    padding: 12px !important;
+  }
+  
+  .v-card-title {
+    font-size: 1.1rem !important;
+  }
+  
+  .text-h4 {
+    font-size: 1.6rem !important;
+  }
+  
+  .live-node {
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+  }
+  
+  .live-node .v-icon {
+    font-size: 16px !important;
+  }
+  
+  .stat-value {
+    font-size: 1.05rem !important;
+  }
+  
+  .v-avatar {
+    size: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  .v-avatar .v-icon {
+    font-size: 14px !important;
+  }
+  
+  .border-b-dimmed {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  
+  .v-data-table__td {
+    font-size: 0.8rem !important;
+    padding: 0 8px !important;
+  }
+  
+  .v-data-table-header__content {
+    font-size: 0.7rem !important;
+  }
+}
