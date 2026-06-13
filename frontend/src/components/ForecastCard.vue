@@ -1,8 +1,18 @@
 <template>
-  <v-card title="Vorhersage">
+  <v-card class="forecast-card h-100">
+    <template v-slot:title>
+      <div class="d-flex align-center justify-space-between w-100">
+        <div class="d-flex align-center">
+          <v-icon color="emerald" class="mr-2">mdi-chart-timeline-variant</v-icon>
+          <span class="font-weight-bold">Ertragsprognose</span>
+        </div>
+        <v-chip size="x-small" color="emerald" variant="tonal" class="font-weight-medium">48h Ausblick</v-chip>
+      </div>
+    </template>
+    
     <template v-slot:text>
       <v-row>
-        <v-col>
+        <v-col class="pa-0">
           <v-data-table
             :expanded="expandedItems"
             density="compact"
@@ -11,18 +21,34 @@
             show-expand
             @update:expanded="expandSingleItem"
             @click:row="clickRow"
+            class="elevation-0"
           >
+            <!-- Custom Row Cells -->
+            <template #[`item.day`]="{ item }">
+              <span class="font-weight-medium text-slate">{{ formatDay(item.day) }}</span>
+            </template>
+            
+            <template #[`item.estimate`]="{ item }">
+              <v-chip size="small" color="emerald" variant="tonal" class="font-weight-bold px-2">
+                {{ formatEstimate(item.estimate) }} kWh
+              </v-chip>
+            </template>
+
+            <!-- Expanded Line Chart -->
             <template v-slot:expanded-row="{ columns, item }">
               <tr>
-                <td :colspan="columns.length" :key="item.id">
-                  <Line
-                    :id="item.id"
-                    :options="chartOptions"
-                    :data="chartData(item.id)"
-                  />
+                <td :colspan="columns.length" :key="item.id" class="pa-3" style="background: rgba(10, 13, 22, 0.45);">
+                  <div style="height: 200px;" class="w-100">
+                    <Line
+                      :id="item.id"
+                      :options="chartOptions"
+                      :data="chartData(item.id)"
+                    />
+                  </div>
                 </td>
               </tr>
             </template>
+            
             <template v-slot:bottom></template>
           </v-data-table>
         </v-col>
@@ -45,7 +71,9 @@ import {
   PointElement,
   CategoryScale,
   LinearScale,
+  Filler,
 } from "chart.js";
+
 ChartJS.register(
   Title,
   Tooltip,
@@ -53,7 +81,8 @@ ChartJS.register(
   PointElement,
   LineElement,
   CategoryScale,
-  LinearScale
+  LinearScale,
+  Filler
 );
 
 const expandedItems = ref([]);
@@ -61,15 +90,70 @@ const headers = ref([
   {
     title: "Tag",
     value: "day",
+    align: "start",
+    sortable: false,
   },
   {
-    title: "kWh",
+    title: "Erwarteter Ertrag",
     value: "estimate",
+    align: "end",
+    sortable: false,
   },
 ]);
 
 const chartOptions = ref({
-  maintainAspectRatio: true,
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      titleColor: "#f8fafc",
+      bodyColor: "#94a3b8",
+      borderColor: "rgba(255, 255, 255, 0.08)",
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 8,
+      bodyFont: {
+        family: "Inter",
+        size: 11,
+      },
+      titleFont: {
+        family: "Outfit",
+        weight: "bold",
+        size: 12,
+      },
+      displayColors: false,
+    },
+  },
+  scales: {
+    x: {
+      grid: {
+        color: "rgba(255, 255, 255, 0.04)",
+      },
+      ticks: {
+        color: "#94a3b8",
+        font: {
+          family: "Inter",
+          size: 10,
+        },
+      },
+    },
+    y: {
+      grid: {
+        color: "rgba(255, 255, 255, 0.04)",
+      },
+      ticks: {
+        color: "#94a3b8",
+        font: {
+          family: "Inter",
+          size: 10,
+        },
+      },
+    },
+  },
 });
 
 const db = useDatabase();
@@ -86,6 +170,24 @@ const expandSingleItem = (items) => {
     (item) => !expandedItems.value.includes(item)
   );
   expandedItems.value = filteredItems;
+};
+
+const formatDay = (val) => {
+  if (!val) return "";
+  const num = Number(val);
+  if (!isNaN(num) && num > 1000000000000) {
+    return new Date(num).toLocaleDateString("de-DE", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+    });
+  }
+  return val;
+};
+
+const formatEstimate = (val) => {
+  if (val === undefined || val === null || isNaN(val)) return "0";
+  return Number(val).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 };
 
 const chartData = (day) => {
@@ -118,11 +220,17 @@ const chartData = (day) => {
     datasets: [
       {
         data: data.data,
-        label: date,
-        backgroundColor: "rgb(0, 255, 132)",
-        borderColor: "rgb(0, 255, 132)",
-        tension: 0.5,
-        radius: 0,
+        label: "Prognose (kW)",
+        backgroundColor: "rgba(16, 185, 129, 0.12)",
+        borderColor: "#10b981",
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: "#10b981",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 1.5,
+        pointRadius: 1.5,
+        pointHoverRadius: 4,
       },
     ],
   };

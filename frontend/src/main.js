@@ -15,6 +15,9 @@ import { firebaseApp } from './firebase'
 // Plugins
 import { registerPlugins } from '@/plugins'
 
+// Global custom styles
+import '@/styles/main.css'
+
 const app = createApp(App)
 
 
