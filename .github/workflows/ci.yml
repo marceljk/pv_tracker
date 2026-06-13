@@ -10,8 +10,32 @@ permissions:
   contents: read
 
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      node: ${{ steps.filter.outputs.node }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - 'api/golang/**'
+            node:
+              - 'api/nodejs/**'
+            frontend:
+              - 'frontend/**'
+            workflows:
+              - '.github/workflows/**'
+
   go-api:
     name: Go API
+    needs: filter
+    if: github.event_name == 'push' || needs.filter.outputs.go == 'true' || needs.filter.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,6 +63,8 @@ jobs:
 
   node-api:
     name: Node API
+    needs: filter
+    if: github.event_name == 'push' || needs.filter.outputs.node == 'true' || needs.filter.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,6 +87,8 @@ jobs:
 
   frontend:
     name: Frontend
+    needs: filter
+    if: github.event_name == 'push' || needs.filter.outputs.frontend == 'true' || needs.filter.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -83,3 +111,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  ci-complete:
+    name: CI Complete
+    needs: [go-api, node-api, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Statuses
+        run: |
+          if [[ "${{ needs.go-api.result }}" != "success" && "${{ needs.go-api.result }}" != "skipped" ]]; then
+            echo "Go API failed"
+            exit 1
+          fi
+          if [[ "${{ needs.node-api.result }}" != "success" && "${{ needs.node-api.result }}" != "skipped" ]]; then
+            echo "Node API failed"
+            exit 1
+          fi
+          if [[ "${{ needs.frontend.result }}" != "success" && "${{ needs.frontend.result }}" != "skipped" ]]; then
+            echo "Frontend failed"
+            exit 1
+          fi
+          echo "All relevant checks passed or were skipped"

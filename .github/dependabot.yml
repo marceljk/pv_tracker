@@ -4,28 +4,52 @@ updates:
     directory: "/api/golang"
     schedule:
       interval: "weekly"
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/api/nodejs"
     schedule:
       interval: "weekly"
+    groups:
+      node-api-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/api/golang/docker"
     schedule:
       interval: "weekly"
+    groups:
+      docker-go-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/api/nodejs"
     schedule:
       interval: "weekly"
+    groups:
+      docker-node-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
