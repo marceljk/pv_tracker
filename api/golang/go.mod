@@ -6,14 +6,14 @@ require (
 	firebase.google.com/go/v4 v4.21.0
 	github.com/joho/godotenv v1.5.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	google.golang.org/api v0.293.0
 )
 
 require (
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
 
 require (
