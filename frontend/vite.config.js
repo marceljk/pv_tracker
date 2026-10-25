@@ -14,25 +14,20 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'SolarOS — PV Live & Analytics',
-        short_name: 'SolarOS',
-        description: 'Echtzeit-Telemetrie, Energiefluss und Ertragsprognose der PV-Anlage',
-        theme_color: '#090a0f',
-        background_color: '#090a0f',
-        display: 'standalone',
-        orientation: 'portrait-primary',
+        name: 'PV - Live und Statistik',
+        short_name: 'PV',
+        description: 'Leistungsübersicht der PV Anlage',
+        theme_color: '#ffffff',
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
+            type: 'image/png'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
+            type: 'image/png'
           }
         ]
       }
