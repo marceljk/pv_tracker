@@ -42,22 +42,17 @@ jobs:
         working-directory: api/golang
     steps:
       - uses: actions/checkout@v7
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: api/golang/go.mod
           cache-dependency-path: api/golang/go.sum
-
       - name: Install dependencies
         run: go mod download
-
       - name: Run tests
         run: go test -v ./...
-
       - name: Build
         run: go build -v ./cmd/main.go
-
       - name: Docker Build (Smoke Test)
         run: docker build -t pv-tracker-go-api:test -f docker/Dockerfile ../../
 
@@ -71,17 +66,14 @@ jobs:
         working-directory: api/nodejs
     steps:
       - uses: actions/checkout@v7
-
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
           node-version: '26'
           cache: 'npm'
           cache-dependency-path: api/nodejs/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Docker Build (Smoke Test)
         run: docker build -t pv-tracker-node-api:test .
 
@@ -95,20 +87,16 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
-
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version: '20' # Modern Node for frontend
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Lint
         run: npm run lint
-
       - name: Build
         run: npm run build
 
@@ -133,3 +121,27 @@ jobs:
             exit 1
           fi
           echo "All relevant checks passed or were skipped"
+
+  dependabot-automerge:
+    name: Dependabot Auto-Merge
+    needs: ci-complete
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Approve and merge
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr review --approve "$PR_URL"
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
