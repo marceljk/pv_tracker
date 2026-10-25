@@ -1,6 +1,6 @@
 module github.com/marceljk/pv_tracker/api/golang
 
-go 1.26.0
+go 1.27.3
 
 require (
 	firebase.google.com/go/v4 v4.22.0
