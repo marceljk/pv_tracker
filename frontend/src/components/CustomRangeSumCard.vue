@@ -1,223 +1,493 @@
 <template>
   <v-card
-    :class="[flat ? 'elevation-0 bg-transparent border-0' : 'summary-card custom-range-card overflow-hidden h-100']">
-    <template v-slot:title v-if="!flat">
-      <div class="d-flex align-center justify-space-between w-100">
+    :class="[
+      flat
+        ? 'elevation-0 bg-transparent border-0 pa-2'
+        : 'bento-card h-100 d-flex flex-column justify-space-between pa-4 pa-sm-6',
+    ]"
+  >
+    <!-- Top Header + Quick Presets -->
+    <div>
+      <div class="d-flex align-center justify-space-between flex-wrap gap-2 mb-4">
         <div class="d-flex align-center">
-          <v-icon color="secondary" class="mr-2" size="20">mdi-calendar-edit</v-icon>
-          <span class="font-weight-bold">{{ title }}</span>
+          <div class="header-icon-box bg-consumption-soft mr-3">
+            <v-icon color="blue" size="20">mdi-chart-timeline-variant-shimmer</v-icon>
+          </div>
+          <div>
+            <div class="d-flex align-center" style="gap: 8px;">
+              <h3 class="font-display font-weight-bold text-subtitle-1 text-primary-adaptive mb-0">
+                {{ title || 'Historische Zeitraum-Analyse' }}
+              </h3>
+              <span v-if="dailyCount > 0" class="status-pill py-0 px-2" style="font-size: 0.7rem;">
+                {{ dailyCount }} {{ dailyCount === 1 ? 'Tag' : 'Tage' }}
+              </span>
+            </div>
+            <p class="text-caption text-secondary-adaptive mb-0">
+              Tagesgenaue Auswertung, Autarkie-Trends &amp; CSV-Datenexport
+            </p>
+          </div>
+        </div>
+
+        <!-- Preset Range Buttons & CSV Export -->
+        <div class="d-flex align-center flex-wrap" style="gap: 8px;">
+          <div class="segmented-control">
+            <button
+              v-for="preset in presets"
+              :key="preset.id"
+              type="button"
+              :class="['segmented-btn', { active: activePreset === preset.id }]"
+              @click="applyPreset(preset.id)"
+            >
+              {{ preset.label }}
+            </button>
+          </div>
+
+          <v-btn
+            v-if="dailyChartPoints.length > 0"
+            variant="tonal"
+            size="small"
+            color="emerald"
+            class="text-none font-weight-semibold rounded-lg"
+            prepend-icon="mdi-download-outline"
+            @click="exportCsv"
+          >
+            CSV
+          </v-btn>
         </div>
       </div>
-    </template>
 
-    <template v-slot:loader v-if="isLoading">
-      <v-progress-linear color="primary" height="2" indeterminate></v-progress-linear>
-    </template>
+      <v-progress-linear
+        v-if="isLoading"
+        color="emerald"
+        height="2"
+        indeterminate
+        class="mb-3 rounded"
+      />
 
-    <template v-slot:text>
-      <v-row class="mb-3" dense>
-        <v-col cols="6" class="pr-1">
-          <v-text-field hide-details="auto" v-model="startDate" label="Start" type="date" variant="solo-filled"
-            density="compact" class="rounded-lg date-input"></v-text-field>
+      <!-- Date Inputs + View Layout -->
+      <v-row dense class="mb-4">
+        <v-col cols="6" sm="3">
+          <v-text-field
+            v-model="startDate"
+            label="Startdatum"
+            type="date"
+            variant="solo-filled"
+            density="compact"
+            hide-details
+            class="date-input"
+            @update:model-value="activePreset = 'custom'"
+          />
         </v-col>
-        <v-col cols="6" class="pl-1">
-          <v-text-field hide-details="auto" v-model="endDate" label="Ende" type="date" variant="solo-filled"
-            density="compact" class="rounded-lg date-input"></v-text-field>
+        <v-col cols="6" sm="3">
+          <v-text-field
+            v-model="endDate"
+            label="Enddatum"
+            type="date"
+            variant="solo-filled"
+            density="compact"
+            hide-details
+            class="date-input"
+            @update:model-value="activePreset = 'custom'"
+          />
+        </v-col>
+
+        <!-- Summary Efficiency Pills -->
+        <v-col cols="6" sm="3">
+          <div class="surface-tile py-2 px-3 h-100 d-flex flex-column justify-center">
+            <span class="text-caption text-muted-adaptive" style="font-size: 0.68rem !important;">
+              Autarkie / Eigenverbrauch
+            </span>
+            <div class="d-flex align-center" style="gap: 8px;">
+              <span class="stat-value text-body-2 text-pv">{{ metrics.autarkiePercent }}%</span>
+              <span class="text-muted-adaptive">/</span>
+              <span class="stat-value text-body-2 text-consumption">{{ metrics.eigenverbrauchPercent }}%</span>
+            </div>
+          </div>
+        </v-col>
+
+        <v-col cols="6" sm="3">
+          <div class="surface-tile py-2 px-3 h-100 d-flex flex-column justify-center">
+            <span class="text-caption text-muted-adaptive" style="font-size: 0.68rem !important;">
+              Finanzieller Ertrag
+            </span>
+            <div class="d-flex align-center justify-space-between">
+              <span class="stat-value text-body-2 text-pv">{{ formattedSavings }} €</span>
+              <span class="text-caption text-secondary-adaptive" style="font-size: 0.68rem !important;">
+                {{ formattedCo2 }} kg CO₂
+              </span>
+            </div>
+          </div>
         </v-col>
       </v-row>
 
-      <div v-if="hasRange" class="py-1">
-        <div v-for="val in Object.entries(dataSum)" :key="val[0]"
-          class="d-flex align-center justify-space-between py-2 border-b-dimmed">
-          <div class="d-flex align-center">
-            <v-avatar size="28" :color="getMetricBgColor(val[0])" class="mr-3" rounded="lg">
-              <v-icon :color="getMetricColor(val[0])" size="16">{{ getMetricIcon(val[0]) }}</v-icon>
-            </v-avatar>
-            <span class="text-caption text-secondary font-weight-medium">{{ liveText(val[0]) }}</span>
+      <!-- Main Body: Left 4 Metric Cards + Right Daily Bar Chart -->
+      <v-row v-if="hasRange" dense>
+        <v-col cols="12" md="5" class="pr-md-3">
+          <div class="surface-tile h-100 d-flex flex-column justify-space-between pa-3">
+            <div
+              v-for="row in metricRows"
+              :key="row.key"
+              class="d-flex align-center justify-space-between py-2 metric-row"
+            >
+              <div class="d-flex align-center">
+                <div :class="['metric-badge', row.badgeClass]">
+                  <v-icon :color="row.iconColor" size="16">{{ row.icon }}</v-icon>
+                </div>
+                <div>
+                  <div class="text-caption font-weight-semibold text-primary-adaptive">
+                    {{ row.label }}
+                  </div>
+                  <div class="text-caption text-muted-adaptive" style="font-size: 0.66rem !important;">
+                    Ø {{ formatEnergy(row.value / Math.max(1, dailyCount)) }} / Tag
+                  </div>
+                </div>
+              </div>
+              <span :class="['stat-value text-subtitle-2', row.textClass]">
+                {{ formatEnergy(row.value) }}
+              </span>
+            </div>
           </div>
-          <span :class="['font-weight-bold stat-value text-body-1', getMetricTextClass(val[0])]">
-            {{ valueText(val[1]) }}
-          </span>
-        </div>
+        </v-col>
+
+        <!-- Daily Trend Chart -->
+        <v-col cols="12" md="7" class="mt-3 mt-md-0">
+          <div class="surface-tile h-100 pa-3 d-flex flex-column justify-space-between">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <span class="text-caption font-weight-semibold text-primary-adaptive">
+                Tagesvergleich (kWh)
+              </span>
+              <div class="d-flex align-center" style="gap: 12px; font-size: 0.7rem;">
+                <span class="d-inline-flex align-center" style="gap: 4px;">
+                  <span style="width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span>
+                  <span class="text-secondary-adaptive">PV Erzeugung</span>
+                </span>
+                <span class="d-inline-flex align-center" style="gap: 4px;">
+                  <span style="width: 8px; height: 8px; border-radius: 2px; background: #3b82f6;"></span>
+                  <span class="text-secondary-adaptive">Verbrauch</span>
+                </span>
+              </div>
+            </div>
+
+            <div style="height: 185px; position: relative;" class="w-100">
+              <Bar
+                v-if="dailyChartPoints.length > 0"
+                :options="barChartOptions"
+                :data="barChartData"
+              />
+              <div
+                v-else
+                class="d-flex flex-column align-center justify-center h-100 text-muted-adaptive"
+              >
+                <v-icon size="24" class="mb-1 opacity-50">mdi-database-search-outline</v-icon>
+                <span class="text-caption">Keine Messdaten im gewählten Zeitraum vorhanden</span>
+              </div>
+            </div>
+          </div>
+        </v-col>
+      </v-row>
+
+      <div v-else class="d-flex flex-column align-center justify-center py-8 text-muted-adaptive">
+        <v-icon size="28" class="mb-2 opacity-40">mdi-calendar-range</v-icon>
+        <span class="text-caption font-weight-medium">Bitte Start- und Enddatum auswählen</span>
       </div>
-      <div v-else class="d-flex flex-column align-center justify-center py-6 text-muted">
-        <v-icon size="28" class="mb-2 opacity-40">mdi-calendar-alert</v-icon>
-        <span class="text-caption font-weight-medium">Zeitraum auswählen</span>
-      </div>
-    </template>
+    </div>
   </v-card>
 </template>
 
-<script>
-import { defineComponent, ref, computed, watch } from "vue";
-import { useDatabase, useDatabaseList } from "vuefire";
+<script setup>
+import { ref, computed, watch } from 'vue'
+import { useDatabase, useDatabaseList } from 'vuefire'
+import { ref as dbRef, query, orderByKey, startAt, endAt } from 'firebase/database'
+import { Bar } from 'vue-chartjs'
 import {
-  ref as dbRef,
-  query,
-  orderByKey,
-  startAt,
-  endAt,
-} from "firebase/database";
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+} from 'chart.js'
+import { useSettings, formatEnergy, computePeriodMetrics } from '@/composables/useSettings'
 
-export default defineComponent({
-  props: {
-    title: {
-      type: String,
-    },
-    flat: {
-      type: Boolean,
-      default: false,
-    },
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+
+defineProps({
+  title: {
+    type: String,
+    default: 'Historische Zeitraum-Analyse',
   },
-  setup() {
-    const startDate = ref("");
-    const endDate = ref("");
-    const db = useDatabase();
-    const isLoading = ref(false);
+  flat: {
+    type: Boolean,
+    default: false,
+  },
+})
 
-    const hasRange = computed(() => !!(startDate.value && endDate.value));
+const { settings } = useSettings()
+const db = useDatabase()
 
-    const queryDb = computed(() => {
-      if (startDate.value && endDate.value) {
-        return query(
-          dbRef(db, "dailySum"),
-          orderByKey(),
-          startAt(startDate.value),
-          endAt(endDate.value)
-        );
-      }
-      return null;
-    });
+const toIsoDate = (d) => d.toISOString().substring(0, 10)
 
-    const dataFromDb = useDatabaseList(queryDb);
+const activePreset = ref('14d')
+const endDate = ref(toIsoDate(new Date()))
+const startDate = ref(toIsoDate(new Date(new Date().setDate(new Date().getDate() - 13))))
+const isLoading = ref(false)
 
-    watch(queryDb, (newQuery) => {
-      if (newQuery) {
-        isLoading.value = true;
-      } else {
-        isLoading.value = false;
-      }
-    });
+const presets = [
+  { id: '7d', label: '7T' },
+  { id: '14d', label: '14T' },
+  { id: '30d', label: '30T' },
+  { id: 'month', label: 'Monat' },
+  { id: 'year', label: 'Jahr' },
+]
 
-    watch(dataFromDb, () => {
-      isLoading.value = false;
-    });
+const applyPreset = (id) => {
+  activePreset.value = id
+  const now = new Date()
+  endDate.value = toIsoDate(now)
+  if (id === '7d') {
+    const start = new Date()
+    start.setDate(now.getDate() - 6)
+    startDate.value = toIsoDate(start)
+  } else if (id === '14d') {
+    const start = new Date()
+    start.setDate(now.getDate() - 13)
+    startDate.value = toIsoDate(start)
+  } else if (id === '30d') {
+    const start = new Date()
+    start.setDate(now.getDate() - 29)
+    startDate.value = toIsoDate(start)
+  } else if (id === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    startDate.value = toIsoDate(start)
+  } else if (id === 'year') {
+    const start = new Date(now.getFullYear(), 0, 1)
+    startDate.value = toIsoDate(start)
+  }
+}
 
-    const dataSum = computed(() => {
-      let sum = {
-        gridPowerIn: 0,
-        gridPowerOut: 0,
-        powerConsumption: 0,
-        pvPower: 0,
-      };
-      if (dataFromDb.value) {
-        dataFromDb.value.forEach((day) => {
-          const measureTime = day.count / 120;
-          sum = {
-            gridPowerIn:
-              sum.gridPowerIn +
-              (day.gridPowerIn / day.count) * measureTime,
-            gridPowerOut:
-              sum.gridPowerOut +
-              (day.gridPowerOut / day.count) * measureTime,
-            powerConsumption:
-              sum.powerConsumption +
-              (day.powerConsumption / day.count) * measureTime,
-            pvPower: sum.pvPower + (day.pvPower / day.count) * measureTime,
-          };
-        });
-      }
-      return sum;
-    });
+const hasRange = computed(() => Boolean(startDate.value && endDate.value))
 
-    const liveText = (key) => {
-      const x = {
-        gridPowerIn: "Netzeinspeisung",
-        gridPowerOut: "Netzbezug",
-        powerConsumption: "Stromverbrauch",
-        pvPower: "PV Erzeugung",
-      };
-      return x[key];
-    };
+const queryDb = computed(() => {
+  if (startDate.value && endDate.value) {
+    return query(
+      dbRef(db, 'dailySum'),
+      orderByKey(),
+      startAt(startDate.value),
+      endAt(`${endDate.value}T\uf8ff`)
+    )
+  }
+  return null
+})
 
-    const valueText = (value) => {
-      if (value < 10000 && value > -10000) {
-        return `${Math.round(Math.abs(value)).toLocaleString()} W`;
-      }
-      const kWh = Math.round(value / 100) / 10; // one digit
-      return `${Math.abs(kWh).toLocaleString()} kW`;
-    };
+const dataFromDb = useDatabaseList(queryDb)
 
-    const getMetricIcon = (key) => {
-      const icons = {
-        pvPower: "mdi-solar-power-variant",
-        powerConsumption: "mdi-home-lightning-bolt",
-        gridPowerIn: "mdi-transmission-tower-export",
-        gridPowerOut: "mdi-transmission-tower-import",
-      };
-      return icons[key] || "mdi-flash";
-    };
+watch(queryDb, (newQuery) => {
+  isLoading.value = Boolean(newQuery)
+})
 
-    const getMetricColor = (key) => {
-      const colors = {
-        pvPower: "emerald",
-        powerConsumption: "blue",
-        gridPowerIn: "cyan",
-        gridPowerOut: "rose",
-      };
-      return colors[key] || "primary";
-    };
+watch(dataFromDb, () => {
+  isLoading.value = false
+})
 
-    const getMetricBgColor = (key) => {
-      const colors = {
-        pvPower: "rgba(16, 185, 129, 0.08)",
-        powerConsumption: "rgba(59, 130, 246, 0.08)",
-        gridPowerIn: "rgba(6, 182, 212, 0.08)",
-        gridPowerOut: "rgba(244, 63, 94, 0.08)",
-      };
-      return colors[key] || "rgba(255,255,255,0.05)";
-    };
+const dailyCount = computed(() => (dataFromDb.value ? dataFromDb.value.length : 0))
+const metrics = computed(() => computePeriodMetrics(dataFromDb.value, settings.value))
 
-    const getMetricTextClass = (key) => {
-      const classes = {
-        pvPower: "text-emerald",
-        powerConsumption: "text-blue",
-        gridPowerIn: "text-cyan",
-        gridPowerOut: "text-rose",
-      };
-      return classes[key] || "";
-    };
+const metricRows = computed(() => [
+  {
+    key: 'pvPower',
+    label: 'PV Erzeugung',
+    value: metrics.value.pvWh,
+    icon: 'mdi-solar-power-variant',
+    iconColor: 'emerald',
+    badgeClass: 'bg-pv-soft',
+    textClass: 'text-pv',
+  },
+  {
+    key: 'powerConsumption',
+    label: 'Stromverbrauch',
+    value: metrics.value.consumptionWh,
+    icon: 'mdi-home-lightning-bolt-outline',
+    iconColor: 'blue',
+    badgeClass: 'bg-consumption-soft',
+    textClass: 'text-consumption',
+  },
+  {
+    key: 'gridPowerIn',
+    label: 'Netzeinspeisung',
+    value: metrics.value.gridExportWh,
+    icon: 'mdi-transmission-tower-export',
+    iconColor: 'cyan',
+    badgeClass: 'bg-grid-in-soft',
+    textClass: 'text-grid-in',
+  },
+  {
+    key: 'gridPowerOut',
+    label: 'Netzbezug',
+    value: metrics.value.gridImportWh,
+    icon: 'mdi-transmission-tower-import',
+    iconColor: 'rose',
+    badgeClass: 'bg-grid-out-soft',
+    textClass: 'text-grid-out',
+  },
+])
+
+const formattedSavings = computed(() =>
+  metrics.value.savingsEuro.toLocaleString('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+)
+
+const formattedCo2 = computed(() =>
+  metrics.value.co2SavedKg.toLocaleString('de-DE', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
+)
+
+const dailyChartPoints = computed(() => {
+  if (!dataFromDb.value || !dataFromDb.value.length) return []
+  return dataFromDb.value.map((day) => {
+    const count = day.count || 1
+    const measureTime = count / 120
+    const rawKey = String(day.id || '').replace(/T$/, '')
+    const pvKwh = (((day.pvPower || 0) / count) * measureTime) / 1000
+    const consKwh = (((day.powerConsumption || 0) / count) * measureTime) / 1000
+    const exportKwh = ((Math.abs(day.gridPowerIn || 0) / count) * measureTime) / 1000
+    const importKwh = ((Math.abs(day.gridPowerOut || 0) / count) * measureTime) / 1000
+
+    let label = rawKey
+    const parsed = new Date(rawKey)
+    if (!isNaN(parsed.getTime())) {
+      label = parsed.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+    }
 
     return {
-      dataFromDb,
-      dataSum,
-      liveText,
-      valueText,
-      startDate,
-      endDate,
-      hasRange,
-      getMetricIcon,
-      getMetricColor,
-      getMetricBgColor,
-      getMetricTextClass,
-      isLoading,
-    };
+      date: rawKey,
+      label,
+      pvKwh: Math.max(0, Number(pvKwh.toFixed(2))),
+      consKwh: Math.max(0, Number(consKwh.toFixed(2))),
+      exportKwh: Math.max(0, Number(exportKwh.toFixed(2))),
+      importKwh: Math.max(0, Number(importKwh.toFixed(2))),
+    }
+  })
+})
+
+const barChartData = computed(() => ({
+  labels: dailyChartPoints.value.map((p) => p.label),
+  datasets: [
+    {
+      label: 'PV Erzeugung (kWh)',
+      data: dailyChartPoints.value.map((p) => p.pvKwh),
+      backgroundColor: '#10b981',
+      borderRadius: 5,
+      maxBarThickness: 18,
+    },
+    {
+      label: 'Stromverbrauch (kWh)',
+      data: dailyChartPoints.value.map((p) => p.consKwh),
+      backgroundColor: '#3b82f6',
+      borderRadius: 5,
+      maxBarThickness: 18,
+    },
+  ],
+}))
+
+const barChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: {
+    mode: 'index',
+    intersect: false,
   },
-});
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+      titleColor: '#f8fafc',
+      bodyColor: '#cbd5e1',
+      borderColor: 'rgba(255, 255, 255, 0.12)',
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 10,
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: {
+        color: '#64748b',
+        maxTicksLimit: 10,
+        font: { family: 'Inter', size: 10 },
+      },
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: 'rgba(148, 163, 184, 0.08)' },
+      ticks: {
+        color: '#64748b',
+        maxTicksLimit: 5,
+        font: { family: 'Inter', size: 10 },
+      },
+    },
+  },
+}
+
+const exportCsv = () => {
+  if (!dailyChartPoints.value.length) return
+  const headers = ['Datum', 'PV_Erzeugung_kWh', 'Stromverbrauch_kWh', 'Netzeinspeisung_kWh', 'Netzbezug_kWh']
+  const rows = dailyChartPoints.value.map((r) =>
+    [r.date, r.pvKwh, r.consKwh, r.exportKwh, r.importKwh].join(',')
+  )
+  const csvContent = [headers.join(','), ...rows].join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `solaros-export-${startDate.value}-bis-${endDate.value}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <style scoped>
-.border-b-dimmed {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.header-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.border-b-dimmed:last-child {
+.metric-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.metric-row {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.metric-row:last-child {
   border-bottom: none;
 }
 
 .date-input :deep(.v-field__input) {
   padding-top: 6px !important;
   padding-bottom: 6px !important;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 </style>
